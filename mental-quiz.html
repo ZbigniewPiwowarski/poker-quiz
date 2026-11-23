@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quiz mentalny</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #12161c;
+      --card: #1c232d;
+      --line: #2c3644;
+      --text: #e7edf5;
+      --muted: #93a0b3;
+      --accent: #3c82f6;
+      --ok: #1f8a4d;
+      --ok-bg: #163524;
+      --bad: #c44747;
+      --bad-bg: #3a1c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+    h1 { margin: 0 0 6px; font-size: 28px; }
+    .meta { margin: 0 0 24px; color: var(--muted); font-size: 14px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 22px;
+    }
+    .prompt {
+      margin: 0 0 18px;
+      font-size: 18px;
+      font-weight: 650;
+      line-height: 1.45;
+    }
+    .answers {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    button { font: inherit; cursor: pointer; }
+    .answer {
+      color: var(--text);
+      background: #12161c;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 16px;
+      font-weight: 650;
+    }
+    .answer:hover:not(:disabled) { border-color: var(--accent); }
+    .answer:disabled { cursor: default; }
+    .answer.good { background: var(--ok-bg); border-color: var(--ok); }
+    .answer.bad { background: var(--bad-bg); border-color: var(--bad); }
+    .feedback {
+      margin: 14px 0 0;
+      font-size: 15px;
+      font-weight: 650;
+    }
+    .feedback.good { color: #7ddea8; }
+    .feedback.bad { color: #f0a0a0; }
+    .next {
+      margin-top: 16px;
+      color: white;
+      background: var(--accent);
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 650;
+    }
+    .center {
+      text-align: center;
+      padding: 12px 0 4px;
+    }
+    .joker {
+      font-size: 72px;
+      line-height: 1;
+      margin: 8px 0 12px;
+    }
+    .ready-title {
+      margin: 0 0 8px;
+      font-size: 28px;
+      font-weight: 750;
+    }
+    .ready-sub {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .reflection {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.55;
+      font-weight: 550;
+    }
+    .hidden { display: none; }
+    @media (max-width: 520px) {
+      .answers { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Quiz mentalny</h1>
+    <p class="meta" id="meta"></p>
+    <section class="card">
+      <div id="askView">
+        <p class="prompt" id="prompt"></p>
+        <div class="answers" id="answers">
+          <button class="answer" id="yesBtn" type="button">TAK</button>
+          <button class="answer" id="noBtn" type="button">NIE</button>
+        </div>
+        <p class="feedback hidden" id="feedback"></p>
+        <button class="next hidden" id="askNext" type="button">Dalej</button>
+      </div>
+
+      <div id="jokerView" class="center hidden">
+        <div class="joker" aria-hidden="true">🃏</div>
+        <p class="ready-title">Możesz grać</p>
+        <p class="ready-sub">Checklist mentalny zaliczony. Przejdź do przemyśleń.</p>
+        <button class="next" id="jokerNext" type="button">Next</button>
+      </div>
+
+      <div id="reflectView" class="hidden">
+        <p class="meta" id="reflectMeta" style="margin:0 0 12px"></p>
+        <p class="reflection" id="reflection"></p>
+        <button class="next" id="reflectNext" type="button">Next</button>
+      </div>
+
+      <div id="doneView" class="center hidden">
+        <p class="ready-title">Gotowe</p>
+        <p class="ready-sub">Wejdź do sesji z tą ramą.</p>
+        <button class="next" id="restart" type="button">Od początku</button>
+      </div>
+    </section>
+  </main>
+  <script>
+    const questions = [
+  {
+    "id": "rested",
+    "prompt": "Czy jesteś wypoczęty fizycznie i mentalnie?",
+    "yesGood": true
+  },
+  {
+    "id": "entertainment",
+    "prompt": "Czy traktujesz tę rozgrywkę jako rozrywkę i chcesz się wyluzować?",
+    "yesGood": false
+  },
+  {
+    "id": "job",
+    "prompt": "Czy traktujesz rozgrywkę jak pracę na etacie?",
+    "yesGood": true
+  },
+  {
+    "id": "one-decision",
+    "prompt": "Czy pamiętasz, że jedna drobna decyzja jest w stanie zmienić całą sesję?",
+    "yesGood": true
+  },
+  {
+    "id": "others-win",
+    "prompt": "Czy rozumiesz, że inni też mają prawo wygrać i jesteś z tym pogodzony?",
+    "yesGood": true
+  },
+  {
+    "id": "process",
+    "prompt": "Czy rozumiesz, że nie masz wpływu na wynik, a tylko na akcje, które wykonujesz?",
+    "yesGood": true
+  },
+  {
+    "id": "grateful",
+    "prompt": "Czy jesteś wdzięczny za to, że masz możliwość grać?",
+    "yesGood": true
+  },
+  {
+    "id": "yearly",
+    "prompt": "Czy rozumiesz, że zarobek może się nie pojawić i to nie ma znaczenia, bo decyzję czy grać podejmujesz raz na rok i wtedy dopiero liczy się, czy jest zarobek?",
+    "yesGood": true
+  }
+];
+    const reflections = [
+  "Wyobraź sobie, że grasz dla kogoś, komu musisz raportować swoje akcje.",
+  "Wyobraź sobie, że jesteś przyczajonym jaguarem i czekasz na okazję. Jesteś w stanie siedzieć bez ruchu długie godziny i nie podejmujesz pochopnych decyzji.",
+  "Pamiętaj, że poker to tylko jedna z dróg i jak się nie uda, to nie ma problemu. Rób wszystko, co możliwe, żeby się udało, a potem całkowicie odpuść temat. Zostaw ten temat dla Poker Gods.",
+  "Wyobraź sobie, że osiągnąłeś sukces w pokerze i że masz całkowitą wolność i niezależność."
+];
+
+    const meta = document.getElementById("meta");
+    const askView = document.getElementById("askView");
+    const jokerView = document.getElementById("jokerView");
+    const reflectView = document.getElementById("reflectView");
+    const doneView = document.getElementById("doneView");
+    const prompt = document.getElementById("prompt");
+    const yesBtn = document.getElementById("yesBtn");
+    const noBtn = document.getElementById("noBtn");
+    const feedback = document.getElementById("feedback");
+    const askNext = document.getElementById("askNext");
+    const jokerNext = document.getElementById("jokerNext");
+    const reflectMeta = document.getElementById("reflectMeta");
+    const reflection = document.getElementById("reflection");
+    const reflectNext = document.getElementById("reflectNext");
+    const restart = document.getElementById("restart");
+
+    let qi = 0;
+    let ri = 0;
+    let answered = false;
+    let plus = 0;
+    let minus = 0;
+
+    function show(view) {
+      askView.classList.toggle("hidden", view !== "ask");
+      jokerView.classList.toggle("hidden", view !== "joker");
+      reflectView.classList.toggle("hidden", view !== "reflect");
+      doneView.classList.toggle("hidden", view !== "done");
+    }
+
+    function showQuestion() {
+      show("ask");
+      answered = false;
+      const q = questions[qi];
+      meta.textContent = "Pytanie " + (qi + 1) + " / " + questions.length;
+      prompt.textContent = q.prompt;
+      feedback.classList.add("hidden");
+      askNext.classList.add("hidden");
+      yesBtn.disabled = false;
+      noBtn.disabled = false;
+      yesBtn.className = "answer";
+      noBtn.className = "answer";
+    }
+
+    function grade(choseYes) {
+      if (answered) return;
+      answered = true;
+      const q = questions[qi];
+      const good = choseYes === q.yesGood;
+      if (good) plus += 1;
+      else minus += 1;
+
+      yesBtn.disabled = true;
+      noBtn.disabled = true;
+      yesBtn.className = "answer " + ((q.yesGood === true) ? "good" : "bad");
+      noBtn.className = "answer " + ((q.yesGood === false) ? "good" : "bad");
+
+      feedback.textContent = good ? "+ plus" : "- minus";
+      feedback.className = "feedback " + (good ? "good" : "bad");
+      feedback.classList.remove("hidden");
+      askNext.classList.remove("hidden");
+      askNext.textContent = qi === questions.length - 1 ? "Zobacz wynik" : "Dalej";
+    }
+
+    function afterAsk() {
+      qi += 1;
+      if (qi < questions.length) {
+        showQuestion();
+        return;
+      }
+      meta.textContent = "Wynik: +" + plus + " / -" + minus;
+      show("joker");
+    }
+
+    function showReflection() {
+      show("reflect");
+      reflectMeta.textContent = "Przemyślenie " + (ri + 1) + " / " + reflections.length;
+      reflection.textContent = reflections[ri];
+      reflectNext.textContent = ri === reflections.length - 1 ? "Koniec" : "Next";
+    }
+
+    yesBtn.addEventListener("click", () => grade(true));
+    noBtn.addEventListener("click", () => grade(false));
+    askNext.addEventListener("click", afterAsk);
+    jokerNext.addEventListener("click", () => {
+      ri = 0;
+      showReflection();
+    });
+    reflectNext.addEventListener("click", () => {
+      ri += 1;
+      if (ri < reflections.length) showReflection();
+      else {
+        meta.textContent = "";
+        show("done");
+      }
+    });
+    restart.addEventListener("click", () => {
+      qi = 0;
+      ri = 0;
+      plus = 0;
+      minus = 0;
+      showQuestion();
+    });
+
+    showQuestion();
+  </script>
+</body>
+</html>
